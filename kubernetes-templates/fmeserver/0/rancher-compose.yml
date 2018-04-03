@@ -1,0 +1,22 @@
+version: "2"
+catalog:
+  version: 1
+  minimum_rancher_version: 1.6.0
+  questions:
+    - variable: BUILD
+      label: Build Number
+      description: The build number of the FME Server to deploy
+      required: true
+      default: 2018-latest
+      type: string
+    - variable: EXTERNAL__HOSTNAME
+      label: FME Server external hostname
+      required: true
+      default: localhost
+      type: string
+    - variable: MEMORY_RESERVATION
+      label: Memory Reservation
+      description: Set a memory reservation to prevent Rancher from putting all engines on the first host to come up
+      required: true
+      default: 3984588800
+      type: string

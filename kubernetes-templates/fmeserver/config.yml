@@ -1,0 +1,6 @@
+name: 123 Software Scaler FME Server
+description: |
+  Deploys Scaler FME Server in Rancher in 123 Software
+version: 1
+category: FME
+maintainer: Ruslan Shevchenko <ruslansh@123software.ru>

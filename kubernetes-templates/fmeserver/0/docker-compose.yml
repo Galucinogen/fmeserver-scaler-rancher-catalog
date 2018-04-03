@@ -1,0 +1,96 @@
+# This is a docker compose file for starting a full FME Server with one engine.
+
+version: "2"
+services:
+ # fmeserverdb is the database container for FME Server.
+ fmeserverdb:
+  image: safesoftware/fmeserver-db:${BUILD}
+  volumes:
+   - database:/var/lib/postgresql/data
+  restart: always
+  labels:
+    io.rancher.scheduler.affinity:host_label: "app_fmedb=fmedb"
+    io.rancher.scheduler.global: "true"
+
+ # fmeservercore is the container running the FME Server core components.
+ # This exposes port 25 for receiving emails as FME Server and 7078 for the
+ # web socket connection
+ fmeservercore:
+  image: safesoftware/fmeserver-core:${BUILD}
+  volumes:
+    - fme-data:/data/fmeserverdata
+  ports:
+   - "25:7125"
+   - "7078:7078"
+  hostname: fmeservercore
+  restart: always
+  labels:
+    io.rancher.scheduler.affinity:host_label: "app_fmecore=fmecore"
+    io.rancher.scheduler.global: "true"
+  depends_on:
+   - fmeserverdb
+   - fmeserverqueue
+
+ # fmeserverweb is the web front end container for FME Server.  This runs Apache tomcat and hosts the FME Server webapps
+ # EXTERNALHOSTNAME is used for the topic monitoring in the web ui and should be set to the physical host the container is running on
+ fmeserverweb:
+  image: safesoftware/fmeserver-web:${BUILD}
+  volumes:
+    - fme-data:/data/fmeserverdata
+  ports:
+   - "80:8080"
+  environment:
+   - EXTERNALHOSTNAME=${EXTERNAL_HOSTNAME}
+  hostname: fmeserverweb
+  restart: always
+  labels:
+    io.rancher.scheduler.affinity:host_label: "app_fmeweb=fmeweb"
+    io.rancher.scheduler.global: "true"
+  depends_on:
+   - fmeservercore
+
+ # fmeserverengine is the Engine that connects to the Server core
+ # EXTERNALHOSTNAME is used for the data download service result URL and should be set to the physical host the container is running on
+ fmeserverengine:
+  image: safesoftware/fmeserver-engine:${BUILD}
+  volumes:
+    - fme-data:/data/fmeserverdata
+  restart: always
+  labels:
+    io.rancher.scheduler.affinity:host_label: "app_fmecore=fmecore"
+    io.rancher.scheduler.global: "true"
+  depends_on:
+   - fmeservercore
+  environment:
+    - FME_ENV_ENGINE_QUEUES=ScaledEngines
+  mem_reservation: ${MEMORY_RESERVATION}
+
+ fmeserverqueue:
+    image: safesoftware/fmeserver-queue:2018-latest
+    hostname: fmeserverqueue
+    volumes:
+     - fme-data:/data/fmeserverdata
+    restart: always
+    labels:
+      io.rancher.scheduler.affinity:host_label: "app_fmecore=fmecore"
+      io.rancher.scheduler.global: "true"
+
+ fmeserverenginescaler:
+    image: safesoftware/fmeserver-engine:${BUILD}
+    volumes:
+      - fmeserver:/data/fmeserverdata
+    restart: always
+    depends_on:
+      - fmeservercore
+    environment:
+      - EXTERNALHOSTNAME=${EXTERNAL_HOSTNAME}
+      - FME_ENV_ENGINE_QUEUES=Scaler
+    labels:
+      io.rancher.container.hostname_override: container_name
+      io.rancher.scheduler.affinity:host_label: "app_fmecore=fmecore"
+
+volumes:
+   database:
+      driver: local
+   fme-data:
+      driver: rancher-nfs
